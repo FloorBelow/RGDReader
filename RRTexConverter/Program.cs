@@ -8,16 +8,14 @@ using SixLabors.ImageSharp;
 using BCnEncoder.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 
-if (args.Length != 2)
+if (args.Length != 1)
 {
-    Console.WriteLine("Usage: {0} <Directory with rrtex files> <Output directory>", AppDomain.CurrentDomain.FriendlyName);
+    Console.WriteLine("Usage: {0} <Directory with rrtex files>", AppDomain.CurrentDomain.FriendlyName);
     return;
 }
 
 string path = args[0];
-string outPath = args[1];
 
-Console.WriteLine("Output directory: {0}", outPath);
 Console.WriteLine("Searching for rgd files in {0}", path);
 
 Matcher matcher = new();
@@ -172,9 +170,11 @@ void ConvertRRTex(string rrtexPath)
 
                     using Image<Rgba32> image = decoder.DecodeRawToImageRgba32(data.ToArray(), w, h, format);
 
-                    var outImagePath = Path.Join(outPath, $"{outRelativePath}_mip{i}.png");
-                    Directory.CreateDirectory(Path.GetDirectoryName(outImagePath));
+                    //var outImagePath = Path.Join(outPath, $"{outRelativePath}_mip{i}.png");
+                    var outImagePath = Path.Join(rrtexPath.Replace(".rrtex", $"_mip{i}.png"));
+                    //Directory.CreateDirectory(Path.GetDirectoryName(outImagePath));
                     image.SaveAsPng(outImagePath);
+                    //break;
                 }
             }
 
@@ -190,15 +190,11 @@ void ConvertRRTex(string rrtexPath)
     PrintHeaders(reader.BaseStream.Position, reader.BaseStream.Length - reader.BaseStream.Position);
 }
 
-using (var progress = new ProgressBar())
+
+foreach (var rgdPath in rgdPaths)
 {
-    int processed = 0;
-    foreach (var rgdPath in rgdPaths)
-    {
+        Console.WriteLine(rgdPath);
         ConvertRRTex(rgdPath);
-        processed++;
-        progress.Report((double)processed / rgdPaths.Length);
-    }
 }
 
 Console.WriteLine("Done, {0} unhandled textures:", unhandledTextureMessages.Count);

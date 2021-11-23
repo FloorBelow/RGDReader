@@ -85,97 +85,107 @@ void ConvertRRTex(string rrtexPath)
             {
                 int count = 0;
                 int unk = reader.ReadInt32();
-                for (int i = 0; i < mipCount; i++)
+                for (int i = 0; i < mipCount - 1; i++)
                 {
-                    List<byte> data = new();
-                    int w = -1;
-                    int h = -1;
 
                     for (int j = 0; j < mipTextureCounts[i]; j++)
                     {
                         long prePos = reader.BaseStream.Position;
+                        reader.BaseStream.Position = prePos + sizeCompressed[count];
+                        count++;
+                    }
+                }
 
-                        if (sizeCompressed[count] != sizeUncompressed[count])
+
+                List<byte> data = new();
+                int w = -1;
+                int h = -1;
+
+                for (int j = 0; j < mipTextureCounts[mipCount - 1]; j++)
+                {
+                    long prePos = reader.BaseStream.Position;
+
+                        
+
+                        
+
+                    if (sizeCompressed[count] != sizeUncompressed[count])
+                    {
+                        byte[] zlibHeader = reader.ReadBytes(2);
+
+                        DeflateStream deflateStream = new DeflateStream(reader.BaseStream, CompressionMode.Decompress, true);
+                        MemoryStream inflatedStream = new MemoryStream();
+                        deflateStream.CopyTo(inflatedStream);
+                        int length2 = (int)inflatedStream.Length;
+
+                        BinaryReader dataReader = new BinaryReader(inflatedStream);
+                        dataReader.BaseStream.Position = 0;
+
+                        if (j == 0)
                         {
-                            byte[] zlibHeader = reader.ReadBytes(2);
-
-                            DeflateStream deflateStream = new DeflateStream(reader.BaseStream, CompressionMode.Decompress, true);
-                            MemoryStream inflatedStream = new MemoryStream();
-                            deflateStream.CopyTo(inflatedStream);
-                            int length2 = (int)inflatedStream.Length;
-
-                            BinaryReader dataReader = new BinaryReader(inflatedStream);
-                            dataReader.BaseStream.Position = 0;
-
-                            if (j == 0)
-                            {
-                                int mipLevel = dataReader.ReadInt32();
-                                int widthx = dataReader.ReadInt32();
-                                int heightx = dataReader.ReadInt32();
-                                w = Math.Max(widthx, 4);
-                                h = Math.Max(heightx, 4);
-                                int numPhysicalTexels = dataReader.ReadInt32();
-                                data.AddRange(dataReader.ReadBytes(length2 - 16));
-                            }
-                            else
-                            {
-                                data.AddRange(dataReader.ReadBytes(length2));
-                            }
+                            int mipLevel = dataReader.ReadInt32();
+                            int widthx = dataReader.ReadInt32();
+                            int heightx = dataReader.ReadInt32();
+                            w = Math.Max(widthx, 4);
+                            h = Math.Max(heightx, 4);
+                            int numPhysicalTexels = dataReader.ReadInt32();
+                            data.AddRange(dataReader.ReadBytes(length2 - 16));
                         }
                         else
                         {
-                            int length2 = sizeUncompressed[count];
-
-                            if (j == 0)
-                            {
-                                int mipLevel = reader.ReadInt32();
-                                int widthx = reader.ReadInt32();
-                                int heightx = reader.ReadInt32();
-                                w = Math.Max(widthx, 4);
-                                h = Math.Max(heightx, 4);
-                                int numPhysicalTexels = reader.ReadInt32();
-                                data.AddRange(reader.ReadBytes(length2 - 16));
-                            }
-                            else
-                            {
-                                data.AddRange(reader.ReadBytes(length2));
-                            }
+                            data.AddRange(dataReader.ReadBytes(length2));
                         }
+                    }
+                    else
+                    {
+                        int length2 = sizeUncompressed[count];
 
-                        reader.BaseStream.Position = prePos + sizeCompressed[count];
-
-                        count++;
+                        if (j == 0)
+                        {
+                            int mipLevel = reader.ReadInt32();
+                            int widthx = reader.ReadInt32();
+                            int heightx = reader.ReadInt32();
+                            w = Math.Max(widthx, 4);
+                            h = Math.Max(heightx, 4);
+                            int numPhysicalTexels = reader.ReadInt32();
+                            data.AddRange(reader.ReadBytes(length2 - 16));
+                        }
+                        else
+                        {
+                            data.AddRange(reader.ReadBytes(length2));
+                        }
                     }
 
-                    var decoder = new BcDecoder();
+                    reader.BaseStream.Position = prePos + sizeCompressed[count];
 
-                    var format = textureCompression switch
-                    {
-                        2 => CompressionFormat.R,
-                        18 => CompressionFormat.Bc1WithAlpha,
-                        19 => CompressionFormat.Bc1,
-                        22 => CompressionFormat.Bc3,
-                        28 => CompressionFormat.Bc7,
-                        _ => CompressionFormat.Unknown
-                    };
-
-                    if (format == CompressionFormat.Unknown)
-                    {
-                        unhandledTextureMessages.Add(string.Format(
-                            "Unknown texture compression method {0} for {1}, w={2} h={3} comp={4} uncomp={5}",
-                            textureCompression, rrtexPath, w, h, sizeCompressed[count - 1], sizeUncompressed[count - 1]
-                        ));
-                        continue;
-                    }
-
-                    using Image<Rgba32> image = decoder.DecodeRawToImageRgba32(data.ToArray(), w, h, format);
-
-                    //var outImagePath = Path.Join(outPath, $"{outRelativePath}_mip{i}.png");
-                    var outImagePath = Path.Join(rrtexPath.Replace(".rrtex", $"_mip{i}.png"));
-                    //Directory.CreateDirectory(Path.GetDirectoryName(outImagePath));
-                    image.SaveAsPng(outImagePath);
-                    //break;
+                    count++;
                 }
+
+                var decoder = new BcDecoder();
+
+                var format = textureCompression switch
+                {
+                    2 => CompressionFormat.R,
+                    18 => CompressionFormat.Bc1WithAlpha,
+                    19 => CompressionFormat.Bc1,
+                    22 => CompressionFormat.Bc3,
+                    28 => CompressionFormat.Bc7,
+                    _ => CompressionFormat.Unknown
+                };
+
+                if (format == CompressionFormat.Unknown)
+                {
+                    unhandledTextureMessages.Add(string.Format(
+                        "Unknown texture compression method {0} for {1}, w={2} h={3} comp={4} uncomp={5}",
+                        textureCompression, rrtexPath, w, h, sizeCompressed[count - 1], sizeUncompressed[count - 1]
+                    ));
+                    continue;
+                }
+
+                using Image<Rgba32> image = decoder.DecodeRawToImageRgba32(data.ToArray(), w, h, format);
+
+                var outImagePath = Path.Join(rrtexPath.Replace(".rrtex", ".png"));
+                image.SaveAsPng(outImagePath);
             }
 
             reader.BaseStream.Position = pos;

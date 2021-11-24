@@ -28,6 +28,10 @@ List<string> unhandledTextureMessages = new();
 
 void ConvertRRTex(string rrtexPath)
 {
+
+    if (File.Exists(rrtexPath.Replace(".rrtex", ".png"))) return;
+    Console.WriteLine(rrtexPath);
+
     var reader = new ChunkyFileReader(File.Open(rrtexPath, FileMode.Open), Encoding.ASCII);
     var fileHeader = reader.ReadChunkyFileHeader();
 
@@ -169,7 +173,10 @@ void ConvertRRTex(string rrtexPath)
                     18 => CompressionFormat.Bc1WithAlpha,
                     19 => CompressionFormat.Bc1,
                     22 => CompressionFormat.Bc3,
+                    23 => CompressionFormat.Bc3,
+                    24 => CompressionFormat.Bc4,
                     28 => CompressionFormat.Bc7,
+                    29 => CompressionFormat.Bc7,
                     _ => CompressionFormat.Unknown
                 };
 
@@ -203,7 +210,6 @@ void ConvertRRTex(string rrtexPath)
 
 foreach (var rgdPath in rgdPaths)
 {
-        Console.WriteLine(rgdPath);
         ConvertRRTex(rgdPath);
 }
 
